@@ -129,8 +129,8 @@ public abstract class ExchangeRateProvider extends PriceProvider<Set<ExchangeRat
     @Override
     protected void onRefresh() {
         get().stream()
-                .filter(e -> "USD".equals(e.getCurrency()) || "XMR".equals(e.getCurrency()) || "ETH".equals(e.getCurrency()) || "BCH".equals(e.getCurrency()))
-                .forEach(e -> log.info("BTC/{}: {}", e.getCurrency(), e.getPrice()));
+                .filter(e -> "USD".equals(e.getCounterCurrency()) || "XMR".equals(e.getBaseCurrency()) || "ETH".equals(e.getBaseCurrency()) || "BCH".equals(e.getBaseCurrency()))
+                .forEach(e -> log.info("{}/{}: {}", e.getBaseCurrency(), e.getCounterCurrency(), e.getPrice()));
     }
 
     /**
@@ -157,13 +157,13 @@ public abstract class ExchangeRateProvider extends PriceProvider<Set<ExchangeRat
         // 2) the pairs Haveno considers relevant / valid
         // This will result in two lists of desired pairs (fiat and alts)
 
-        // Find the desired fiat pairs (pair format is BTC-FIAT)
+        // Find the desired fiat pairs (pair format is CRYPTO-FIAT)
         List<CurrencyPair> desiredFiatPairs = allCurrencyPairsOnExchange.stream()
-                .filter(cp -> cp.base.equals(Currency.BTC))
+                .filter(cp -> cp.base.equals(Currency.BTC) || cp.base.equals(Currency.XMR))
                 .filter(cp -> getSupportedFiatCurrencies().contains(cp.counter.getCurrencyCode()))
                 .collect(Collectors.toList());
 
-        // Find the desired altcoin pairs (pair format is ALT-BTC)
+        // Find the desired crypto pairs (pair format is CRYPTO-BTC)
         List<CurrencyPair> desiredCryptoPairs = allCurrencyPairsOnExchange.stream()
                 .filter(cp -> cp.counter.equals(Currency.BTC))
                 .filter(cp -> getSupportedCryptoCurrencies().contains(cp.base.getCurrencyCode()))
@@ -271,30 +271,16 @@ public abstract class ExchangeRateProvider extends PriceProvider<Set<ExchangeRat
         tickersRetrievedFromExchange.stream()
                 .filter(isDesiredFiatPair.or(isDesiredCryptoPair)) // Only consider desired pairs
                 .forEach(t -> {
-                    // All tickers here match all requirements
-
-                    // We have two kinds of currency pairs, BTC-FIAT and ALT-BTC
-                    // In the first one, BTC is the first currency of the pair
-                    // In the second type, BTC is listed as the second currency
-                    // Distinguish between the two and create ExchangeRates accordingly
-
-                    // In every Haveno ExchangeRate, BTC is one currency in the pair
-                    // Extract the other currency from the ticker, to create ExchangeRates
-                    String otherExchangeRateCurrency;
-                    if (t.getCurrencyPair().base.equals(Currency.BTC)) {
-                        otherExchangeRateCurrency = t.getCurrencyPair().counter.getCurrencyCode();
-                    } else {
-                        otherExchangeRateCurrency = t.getCurrencyPair().base.getCurrencyCode();
-                    }
 
                     // skip if price not available
                     if (t.getLast() == null) return;
 
+                    // create spot price for base and counter currencies
                     result.add(new ExchangeRate(
-                            otherExchangeRateCurrency,
+                            t.getCurrencyPair().base.getCurrencyCode(),
+                            t.getCurrencyPair().counter.getCurrencyCode(),
                             t.getLast(),
-                            // Some exchanges do not provide timestamps
-                            t.getTimestamp() == null ? new Date() : t.getTimestamp(),
+                            t.getTimestamp() == null ? new Date() : t.getTimestamp(), // some exchanges don't provide timestamps
                             this.getName()
                     ));
                 });

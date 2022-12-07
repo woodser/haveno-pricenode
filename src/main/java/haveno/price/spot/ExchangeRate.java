@@ -24,48 +24,56 @@ import java.util.Date;
 import java.util.Objects;
 
 /**
- * A value object representing the spot price in bitcoin for a given currency at a given
+ * A value object representing the spot price for a given base and counter currency at a given
  * time as reported by a given provider.
  */
 public class ExchangeRate {
 
-    private final String currency;
+    private final String baseCurrency;
+    private final String counterCurrency;
     private final double price;
     private final long timestamp;
     private final String provider;
 
-    public ExchangeRate(String currency, BigDecimal price, Date timestamp, String provider) {
+    public ExchangeRate(String baseCurrency, String counterCurrency, BigDecimal price, Date timestamp, String provider) {
         this(
-                currency,
+                baseCurrency,
+                counterCurrency,
                 price.doubleValue(),
                 timestamp.getTime(),
                 provider
         );
     }
 
-    public ExchangeRate(String currency, double price, long timestamp, String provider) {
-        this.currency = currency;
+    public ExchangeRate(String baseCurrency, String counterCurrency, double price, long timestamp, String provider) {
+        this.baseCurrency = baseCurrency;
+        this.counterCurrency = counterCurrency;
         this.price = price;
         this.timestamp = timestamp;
         this.provider = provider;
     }
 
-    @JsonProperty(value = "currencyCode", index = 1)
-    public String getCurrency() {
-        return currency;
+    @JsonProperty(value = "baseCurrencyCode", index = 1)
+    public String getBaseCurrency() {
+        return baseCurrency;
     }
 
-    @JsonProperty(value = "price", index = 2)
+    @JsonProperty(value = "counterCurrencyCode", index = 2)
+    public String getCounterCurrency() {
+        return counterCurrency;
+    }
+
+    @JsonProperty(value = "price", index = 3)
     public double getPrice() {
         return this.price;
     }
 
-    @JsonProperty(value = "timestampSec", index = 3)
+    @JsonProperty(value = "timestampSec", index = 4)
     public long getTimestamp() {
         return this.timestamp;
     }
 
-    @JsonProperty(value = "provider", index = 4)
+    @JsonProperty(value = "provider", index = 5)
     public String getProvider() {
         return provider;
     }
@@ -77,19 +85,21 @@ public class ExchangeRate {
         ExchangeRate exchangeRate = (ExchangeRate) o;
         return Double.compare(exchangeRate.price, price) == 0 &&
                 timestamp == exchangeRate.timestamp &&
-                Objects.equals(currency, exchangeRate.currency) &&
+                Objects.equals(baseCurrency, exchangeRate.baseCurrency) &&
+                Objects.equals(counterCurrency, exchangeRate.counterCurrency) &&
                 Objects.equals(provider, exchangeRate.provider);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(currency, price, timestamp, provider);
+        return Objects.hash(baseCurrency, counterCurrency, price, timestamp, provider);
     }
 
     @Override
     public String toString() {
         return "ExchangeRate{" +
-                "currency='" + currency + '\'' +
+                "baseCurrency='" + baseCurrency + '\'' +
+                ", counterCurrency='" + counterCurrency + '\'' +
                 ", price=" + price +
                 ", timestamp=" + timestamp +
                 ", provider=" + provider +

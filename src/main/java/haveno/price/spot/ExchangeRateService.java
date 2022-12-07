@@ -21,7 +21,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import bisq.core.locale.CurrencyUtil;
+
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 /**
@@ -45,12 +48,15 @@ class ExchangeRateService {
     }
 
     public Map<String, Object> getAllMarketPrices() {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        Map<String, ExchangeRate> aggregateExchangeRates = getAggregateExchangeRates();
 
+        // get aggregate exchange rates for xmr
+        List<ExchangeRate> aggregateExchangeRates = getAggregateExchangeRatesXmr();
+        aggregateExchangeRates.sort(Comparator.comparing(ExchangeRate::getBaseCurrency).thenComparing(ExchangeRate::getCounterCurrency));
+
+        // get metadata
+        Map<String, Object> metadata = new LinkedHashMap<>();
         providers.forEach(p -> {
-            if (p.get() == null)
-                return;
+            if (p.get() == null) return;
             Set<ExchangeRate> exchangeRates = p.get();
 
             // Specific metadata fields for specific providers are expected by the client,
@@ -60,14 +66,106 @@ class ExchangeRateService {
             metadata.putAll(getMetadata(p, exchangeRates));
         });
 
+        // return result
         LinkedHashMap<String, Object> result = new LinkedHashMap<>(metadata);
-        // Use a sorted list by currency code to make comparison of json data between
-        // different price nodes easier
-        List<ExchangeRate> values = new ArrayList<>(aggregateExchangeRates.values());
-        values.sort(Comparator.comparing(ExchangeRate::getCurrency));
-        result.put("data", values);
-
+        result.put("data", aggregateExchangeRates);
         return result;
+    }
+
+    private List<ExchangeRate> getAggregateExchangeRatesXmr() {
+        String BTC = "BTC";
+        String XMR = "XMR";
+        String USD = "USD";
+
+        // fetch all aggregate rates
+        Map<String, Map<String, ExchangeRate>> aggregateRates = getAggregateExchangeRates();
+
+        // get all currencies to translate xmr rates
+        Set<String> currencies = new HashSet<String>(aggregateRates.keySet());
+        for (String baseCurrency : aggregateRates.keySet()) currencies.addAll(aggregateRates.get(baseCurrency).keySet());
+        currencies.remove(XMR);
+
+        // translate xmr rates
+        List<ExchangeRate> xmrRates = new ArrayList<ExchangeRate>();
+        if (!aggregateRates.containsKey(XMR)) return xmrRates;
+        ExchangeRate xmrBtcRate = aggregateRates.get(XMR).get(BTC);
+        ExchangeRate xmrUsdRate = aggregateRates.get(XMR).get(USD);
+        for (String currency : currencies) {
+
+            // use direct rate if available
+            if (aggregateRates.get(XMR).containsKey(currency)) {
+
+                // invert rate if btc counter currency
+                ExchangeRate rate = aggregateRates.get(XMR).get(currency);
+                if (currency.equals(BTC)) {
+                    BigDecimal rateBD = new BigDecimal(rate.getPrice());
+                    BigDecimal inverseRate = (rateBD.compareTo(BigDecimal.ZERO) > 0) ? BigDecimal.ONE.divide(rateBD, 8, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                    xmrRates.add(new ExchangeRate(
+                            BTC,
+                            XMR,
+                            inverseRate.doubleValue(),
+                            rate.getTimestamp(),
+                            rate.getProvider()
+                    ));
+                } else {
+                    xmrRates.add(rate);
+                }
+            } else {
+                if (CurrencyUtil.isFiatCurrency(currency)) {
+
+                    // convert xmr to btc to fiat
+                    ExchangeRate btcFiatRate = aggregateRates.get(BTC).get(currency);
+                    if (btcFiatRate == null) {
+                        log.warn("No BTC/{} rate available", currency);
+                        continue;
+                    }
+                    xmrRates.add(new ExchangeRate(
+                            XMR,
+                            currency,
+                            xmrBtcRate.getPrice() * btcFiatRate.getPrice(),
+                            btcFiatRate.getTimestamp(),
+                            xmrBtcRate.getProvider()
+                    ));
+                } else if (CurrencyUtil.isCryptoCurrency(currency)) {
+                    if (!aggregateRates.containsKey(currency)) {
+                        log.warn("No exchange rate found for crypto: {}", currency);
+                        continue;
+                    }
+                    ExchangeRate cryptoUsdRate = aggregateRates.get(currency).get(USD);
+                    if (cryptoUsdRate == null) {
+
+                        // convert xmr to btc to crypto
+                        ExchangeRate cryptoBtcRate = aggregateRates.get(currency).get(BTC);
+                        if (cryptoBtcRate == null) {
+                            log.warn("No {}/BTC rate available", currency);
+                            continue;
+                        }
+                        xmrRates.add(new ExchangeRate(
+                                currency,
+                                XMR,
+                                cryptoBtcRate.getPrice() / xmrBtcRate.getPrice(),
+                                xmrBtcRate.getTimestamp(),
+                                xmrBtcRate.getProvider()
+                        ));
+                    } else {
+
+                        // convert xmr to usd to crypto
+                        xmrRates.add(new ExchangeRate(
+                                currency,
+                                XMR,
+                                cryptoUsdRate.getPrice() / xmrUsdRate.getPrice(),
+                                xmrBtcRate.getTimestamp(),
+                                xmrBtcRate.getProvider()
+                        ));
+                    }
+                } else {
+                    log.warn("Currency is neither fiat nor crypto: " + currency);
+                    continue;
+                }
+            }
+        }
+
+        return xmrRates;
     }
 
     /**
@@ -75,70 +173,65 @@ class ExchangeRateService {
      * rates from all providers. If multiple providers have rates for the currency, then
      * aggregate price = average of retrieved prices. If a single provider has rates for
      * the currency, then aggregate price = the rate from that provider.
-     *
-     * @return Aggregate {@link ExchangeRate}s based on info from all providers, indexed
-     * by currency code
+     * 
+     * @return all aggregate {@link ExchangeRate}s
      */
-    private Map<String, ExchangeRate> getAggregateExchangeRates() {
-        Map<String, ExchangeRate> aggregateExchangeRates = new HashMap<>();
+    private Map<String, Map<String, ExchangeRate>> getAggregateExchangeRates() {
 
-        // Query all providers and collect all exchange rates, grouped by currency code
-        // key = currency code
-        // value = list of exchange rates
-        Map<String, List<ExchangeRate>> currencyCodeToExchangeRates = getCurrencyCodeToExchangeRates();
+        // fetch all exchange rates
+        Map<String, Map<String, List<ExchangeRate>>> exchangeRates = getAllExchangeRates();
 
-        // For each currency code, calculate aggregate rate
-        currencyCodeToExchangeRates.forEach((currencyCode, exchangeRateList) -> {
-            if (exchangeRateList.isEmpty()) {
-                // If the map was built incorrectly and this currency points to an empty
-                // list of rates, skip it
-                return;
-            }
+        // aggregate exchange rates
+        Map<String, Map<String, ExchangeRate>> aggregateRates = new HashMap<>();
+        exchangeRates.forEach((baseCurrencyCode, counterCurrencyMap) -> {
+            counterCurrencyMap.forEach((counterCurrencyCode, exchangeRateList) -> {
 
-            ExchangeRate aggregateExchangeRate;
-            if (exchangeRateList.size() == 1) {
-                // If a single provider has rates for this currency, then aggregate = rate
-                // from that provider
-                aggregateExchangeRate = exchangeRateList.get(0);
-            } else {
-                // If multiple providers have rates for this currency, then
-                // aggregate = average of the rates
-                OptionalDouble opt = exchangeRateList.stream().mapToDouble(ExchangeRate::getPrice).average();
-                // List size > 1, so opt is always set
-                double priceAvg = opt.orElseThrow(IllegalStateException::new);
+                // skip if no rates
+                if (exchangeRateList.isEmpty()) return;
 
-                aggregateExchangeRate = new ExchangeRate(
-                        currencyCode,
-                        BigDecimal.valueOf(priceAvg),
-                        new Date(), // timestamp = time when avg is calculated
-                        "Haveno-Aggregate");
-            }
-            aggregateExchangeRates.put(aggregateExchangeRate.getCurrency(), aggregateExchangeRate);
+                // get aggregate rate
+                ExchangeRate aggregateRate;
+                if (exchangeRateList.size() == 1) aggregateRate = exchangeRateList.get(0);
+                else {
+                    OptionalDouble opt = exchangeRateList.stream().mapToDouble(ExchangeRate::getPrice).average();
+                    double priceAvg = opt.orElseThrow(IllegalStateException::new);
+                    aggregateRate = new ExchangeRate(
+                            baseCurrencyCode,
+                            counterCurrencyCode,
+                            BigDecimal.valueOf(priceAvg),
+                            new Date(),
+                            "Haveno-Aggregate");
+                }
+
+                // put aggregate rate
+                if (!aggregateRates.containsKey(baseCurrencyCode)) aggregateRates.put(baseCurrencyCode, new HashMap<String, ExchangeRate>());
+                aggregateRates.get(baseCurrencyCode).put(counterCurrencyCode, aggregateRate);
+            });
         });
-
-        return aggregateExchangeRates;
+        return aggregateRates;
     }
 
     /**
-     * @return All {@link ExchangeRate}s from all providers, grouped by currency code
+     * @return All {@link ExchangeRate}s from all providers.
      */
-    private Map<String, List<ExchangeRate>> getCurrencyCodeToExchangeRates() {
-        Map<String, List<ExchangeRate>> currencyCodeToExchangeRates = new HashMap<>();
+    private Map<String, Map<String, List<ExchangeRate>>> getAllExchangeRates() {
+        Map<String, Map<String, List<ExchangeRate>>> exchangeRates = new HashMap<>();
         for (ExchangeRateProvider p : providers) {
-            if (p.get() == null)
-                continue;
-            for (ExchangeRate exchangeRate : p.get()) {
-                String currencyCode = exchangeRate.getCurrency();
-                if (currencyCodeToExchangeRates.containsKey(currencyCode)) {
-                    List<ExchangeRate> l = new ArrayList<>(currencyCodeToExchangeRates.get(currencyCode));
-                    l.add(exchangeRate);
-                    currencyCodeToExchangeRates.put(currencyCode, l);
-                } else {
-                    currencyCodeToExchangeRates.put(currencyCode, List.of(exchangeRate));
-                }
+
+            // get provider rates
+            Set<ExchangeRate> providerRates = p.get();
+            if (providerRates == null) continue;
+
+            // add to map
+            for (ExchangeRate providerRate : providerRates) {
+                if (!exchangeRates.containsKey(providerRate.getBaseCurrency())) exchangeRates.put(providerRate.getBaseCurrency(), new HashMap<String, List<ExchangeRate>>());
+                Map<String, List<ExchangeRate>> baseMap = exchangeRates.get(providerRate.getBaseCurrency());
+                if (!baseMap.containsKey(providerRate.getCounterCurrency())) baseMap.put(providerRate.getCounterCurrency(), new ArrayList<ExchangeRate>());
+                List<ExchangeRate> rates = baseMap.get(providerRate.getCounterCurrency());
+                rates.add(providerRate);
             }
         }
-        return currencyCodeToExchangeRates;
+        return exchangeRates;
     }
 
     private Map<String, Object> getMetadata(ExchangeRateProvider provider, Set<ExchangeRate> exchangeRates) {

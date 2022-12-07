@@ -28,6 +28,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import bisq.core.locale.CurrencyUtil;
+
 import java.time.Duration;
 
 import java.math.BigDecimal;
@@ -65,24 +67,25 @@ class CoinGecko extends ExchangeRateProvider {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
                 .forEach((key, ticker) -> {
 
-                    boolean useInverseRate = false;
+                    boolean isCryptoPair = false;
                     if (getSupportedCryptoCurrencies().contains(key)) {
                         // Use inverse rate for alts, because the API returns the
                         // conversion rate in the opposite direction than what we need
                         // API returns the BTC/Alt rate, we need the Alt/BTC rate
-                        useInverseRate = true;
+                        isCryptoPair = true;
                     }
 
-                    BigDecimal rate = ticker.getValue();
                     // Find the inverse rate, while using enough decimals to reflect very
                     // small exchange rates
+                    BigDecimal rate = ticker.getValue();
                     BigDecimal inverseRate = (rate.compareTo(BigDecimal.ZERO) > 0) ?
                             BigDecimal.ONE.divide(rate, 8, RoundingMode.HALF_UP) :
                             BigDecimal.ZERO;
 
                     result.add(new ExchangeRate(
-                            key,
-                            (useInverseRate ? inverseRate : rate),
+                            isCryptoPair ? key : "BTC",
+                            isCryptoPair ? "BTC" : key,
+                            isCryptoPair ? inverseRate : rate,
                             new Date(),
                             this.getName()
                     ));

@@ -172,6 +172,7 @@ public class ExchangeRateServiceTest {
                 // Simulate rates for all the supported ccys
                 for (String rateCurrencyCode : getSupportedFiatCurrencies()) {
                     exchangeRates.add(new ExchangeRate(
+                            "XMR",
                             rateCurrencyCode,
                             RandomUtils.nextDouble(1, 1000), // random price
                             System.currentTimeMillis(),
@@ -203,7 +204,7 @@ public class ExchangeRateServiceTest {
         int missingCurrencyCount = numSortedFiatCurrencies - numCurrenciesFromProvider;
         assertEquals(missingCurrencyCount, excludedFiatCurrencies.size());
         for (ExchangeRate exchangeRate : exchangeRates) {
-            assertFalse(excludedCcyString.contains(exchangeRate.getCurrency()));
+            assertFalse(excludedCcyString.contains(exchangeRate.getCounterCurrency()));
         }
         List<ILoggingEvent> logsList = ((ListAppender) exchangeRateProviderLogger.getAppender(LIST_APPENDER_NAME2)).list;
         assertEquals(3, logsList.size());
@@ -269,10 +270,11 @@ public class ExchangeRateServiceTest {
         // In other words, even if multiple providers return rates for the same currency,
         // the ExchangeRateService should expose only one (aggregate) ExchangeRate for
         // that currency
-        Map<String, ExchangeRate> currencyCodeToExchangeRateFromService = retrievedRates.stream()
-                .collect(Collectors.toMap(
-                        ExchangeRate::getCurrency, exchangeRate -> exchangeRate
-                ));
+        Map<String, ExchangeRate> currencyCodeToExchangeRateFromService = new HashMap<>();
+        for (ExchangeRate retrievedRate : retrievedRates) {
+            String otherCurrency = "XMR".equals(retrievedRate.getBaseCurrency()) ? retrievedRate.getCounterCurrency() : retrievedRate.getBaseCurrency();
+            currencyCodeToExchangeRateFromService.put(otherCurrency, retrievedRate);
+        }
         int uniqueCurrencyCodes = currencyCodeToExchangeRateFromService.keySet().size();
         assertEquals(uniqueCurrencyCodes, uniqueRates, "Found currency code with multiple exchange rates");
 
@@ -280,7 +282,8 @@ public class ExchangeRateServiceTest {
         Map<String, List<ExchangeRate>> currencyCodeToExchangeRatesFromProviders = new HashMap<>();
         for (ExchangeRateProvider p : providers) {
             for (ExchangeRate exchangeRate : p.get()) {
-                String currencyCode = exchangeRate.getCurrency();
+                String currencyCode = "XMR".equals(exchangeRate.getBaseCurrency()) ? exchangeRate.getCounterCurrency() : exchangeRate.getBaseCurrency();
+                System.out.println("Using currency code: " + currencyCode);
                 if (currencyCodeToExchangeRatesFromProviders.containsKey(currencyCode)) {
                     List<ExchangeRate> l = new ArrayList<>(currencyCodeToExchangeRatesFromProviders.get(currencyCode));
                     l.add(exchangeRate);
@@ -295,6 +298,8 @@ public class ExchangeRateServiceTest {
         // value is an average
         currencyCodeToExchangeRatesFromProviders.forEach((currencyCode, exchangeRateList) -> {
             ExchangeRate rateFromService = currencyCodeToExchangeRateFromService.get(currencyCode);
+            System.out.println("TESTING RATE");
+            System.out.println(rateFromService);
             double priceFromService = rateFromService.getPrice();
 
             OptionalDouble opt = exchangeRateList.stream().mapToDouble(ExchangeRate::getPrice).average();
@@ -334,6 +339,7 @@ public class ExchangeRateServiceTest {
                 for (int i = 0; i < numberOfRatesAvailable; i++) {
                     exchangeRates.add(new ExchangeRate(
                             // random symbol, avoid duplicates
+                            "XMR",
                             "DUM-" + getRandomAlphaNumericString(3),
                             RandomUtils.nextDouble(1, 1000), // random price
                             System.currentTimeMillis(),
@@ -374,6 +380,7 @@ public class ExchangeRateServiceTest {
                 // Simulate the required amount of rates
                 for (String rateCurrencyCode : rateCurrencyCodes) {
                     exchangeRates.add(new ExchangeRate(
+                            "XMR",
                             rateCurrencyCode,
                             RandomUtils.nextDouble(1, 1000), // random price
                             System.currentTimeMillis(),

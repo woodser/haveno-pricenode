@@ -2,9 +2,11 @@ package haveno.price;
 
 import haveno.price.spot.ExchangeRate;
 import haveno.price.spot.ExchangeRateProvider;
+
 import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -34,14 +36,16 @@ public abstract class AbstractExchangeRateProviderTest {
     /**
      * Check that every retrieved currency pair is between BTC and either
      * A) a fiat currency on the list of Haveno-supported fiat currencies, or
-     * B) an altcoin on the list of Haveno-supported altcoins
+     * B) an crypto on the list of Haveno-supported cryptos
      *
      * @param retrievedExchangeRates Exchange rates retrieved from the provider
      */
     private void checkProviderCurrencyPairs(ExchangeRateProvider exchangeProvider, Set<ExchangeRate> retrievedExchangeRates) {
-        Set<String> retrievedRatesCurrencies = retrievedExchangeRates.stream()
-                .map(ExchangeRate::getCurrency)
-                .collect(Collectors.toSet());
+        Set<String> retrievedRatesCurrencies = new HashSet<String>();
+        for (ExchangeRate retrievedRate : retrievedExchangeRates) {
+            String otherCurrency = "XMR".equals(retrievedRate.getBaseCurrency()) ? retrievedRate.getCounterCurrency() : retrievedRate.getBaseCurrency();
+            retrievedRatesCurrencies.add(otherCurrency);
+        }
 
         Set<String> supportedFiatCurrenciesRetrieved = exchangeProvider.getSupportedFiatCurrencies().stream()
                 .filter(f -> retrievedRatesCurrencies.contains(f))

@@ -51,7 +51,7 @@ class BitcoinAverage extends ExchangeRateProvider {
     public Set<ExchangeRate> doGet() {
 
         HashSet<ExchangeRate> exchangeRates = new HashSet<>();
-        exchangeRates.add(new ExchangeRate("NON_EXISTING_SYMBOL_BA", 0, 0L, getName()));
+        exchangeRates.add(new ExchangeRate("NON_EXISTING_BASE_SYMBOL_BA", "NON_EXISTING_COUNTER_SYMBOL_BA", 0, 0L, getName()));
         return exchangeRates;
     }
 }

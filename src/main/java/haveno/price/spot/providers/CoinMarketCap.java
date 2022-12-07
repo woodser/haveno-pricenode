@@ -48,7 +48,7 @@ class CoinMarketCap extends ExchangeRateProvider {
     @Override
     public Set<ExchangeRate> doGet() {
         HashSet<ExchangeRate> exchangeRates = new HashSet<>();
-        exchangeRates.add(new ExchangeRate("NON_EXISTING_SYMBOL", 0, 0L, "CMC"));
+        exchangeRates.add(new ExchangeRate("NON_EXISTING_BASE_SYMBOL", "NON_EXISTING_COUNTER_SYMBOL", 0, 0L, "CMC"));
         return exchangeRates;
     }
 }
