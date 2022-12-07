@@ -19,7 +19,6 @@ package haveno.price.spot;
 
 import bisq.common.config.Config;
 import haveno.price.PriceController;
-import haveno.price.mining.FeeRateService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,21 +28,14 @@ import java.util.Map;
 class ExchangeRateController extends PriceController {
 
     private final ExchangeRateService exchangeRateService;
-    private final FeeRateService feeRateService;
 
-    public ExchangeRateController(ExchangeRateService exchangeRateService, FeeRateService feeRateService) {
+    public ExchangeRateController(ExchangeRateService exchangeRateService) {
         this.exchangeRateService = exchangeRateService;
-        this.feeRateService = feeRateService;
     }
 
     @GetMapping(path = "/getAllMarketPrices")
     public Map<String, Object> getAllMarketPrices() {
-        Map<String, Object> retVal = exchangeRateService.getAllMarketPrices();
-
-        // add the fee info to results
-        feeRateService.getFees().forEach((key, value) -> retVal.put(translateFieldName(key), value));
-
-        return retVal;
+        return exchangeRateService.getAllMarketPrices();
     }
 
     static String translateFieldName(String name) {
