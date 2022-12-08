@@ -2,10 +2,9 @@
 
 ## Overview
 
-The Haveno pricenode is a simple HTTP service that fetches, transforms and relays data from third-party price providers to Haveno exchange clients on request. Available prices include:
+The Haveno pricenode is a simple HTTP service that fetches, transforms and relays data from third-party price providers to Haveno exchange clients on request.
 
- - Bitcoin exchange rates, available at `/getAllMarketPrices`, and
- - Bitcoin mining fee rates, available at `/getFees`
+Monero exchange rates are available at `/getAllMarketPrices`.
 
 Pricenodes are deployed in production as Tor hidden services. This is not because the location of these nodes needs to be kept secret, but rather so that Haveno exchange clients do not need to exit the Tor network in order to get price data.
 
@@ -15,9 +14,9 @@ Pricenodes can be deployed anywhere Java and Tor binaries can be run. Instructio
 
 Pricenodes should be cheap to run with regard to both time and money. The application itself is non-resource intensive and can be run on the low-end of most providers' paid tiers.
 
-A [pricenode operator](https://github.com/haveno-dex/roles/issues/5)'s main responsibilities are to ensure their node(s) are available and up-to-date. Releases are currently source-only, with the assumption that most operators will favor Git-based "push to deploy" workflows. To stay up to date with releases, operators can [subscribe to this repository's releases.atom feed](https://github.com/haveno-dex/pricenode/releases.atom) and/or get notifications in the `#pricenode` Slack channel.
+A pricenode operator's main responsibilities are to ensure their node(s) are available and up-to-date. Releases are currently source-only, with the assumption that most operators will favor Git-based "push to deploy" workflows. To stay up to date with releases, operators can [subscribe to this repository's releases.atom feed](https://github.com/haveno-dex/pricenode/releases.atom) and/or get notifications in the `#pricenode` Slack channel.
 
-Operating a production pricenode is a valuable service to the Haveno network, and operators should issue BSQ compensation requests accordingly.
+Operating a production pricenode is a valuable service to the Haveno network.
 
 
 ## Prerequisites for running a pricenode
@@ -62,13 +61,10 @@ At the end of the installer script, it should print your Tor onion hostname.
 
 ### Test
 
-To manually test endpoints, run each of the following:
+To manually test the endpoint, run the following:
 
 ``` bash
 curl http://localhost:8080/getAllMarketPrices
-curl http://localhost:8080/getFees
-curl http://localhost:8080/getParams
-curl http://localhost:8080/info
 ```
 
 ### Monitoring
@@ -96,12 +92,4 @@ Then build an updated pricenode:
 
  - [docs/README-HEROKU.md](docs/README-HEROKU.md)
  - [docker/README.md](docker/README.md)
-
-
-## Bitcoin mining fee estimates
-
-The pricenode exposes a service API to Haveno clients under `/getFees`.
-
-This API returns a mining fee rate estimate, representing an average of several mining fee rate values retrieved from different `mempool.space` instances.
-
-To configure which `mempool.space` instances are queried to calculate this average, see the relevant section in the file `application.properties`.
+ 
