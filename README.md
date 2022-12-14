@@ -14,7 +14,7 @@ Pricenodes can be deployed anywhere Java and Tor binaries can be run. Instructio
 
 Pricenodes should be cheap to run with regard to both time and money. The application itself is non-resource intensive and can be run on the low-end of most providers' paid tiers.
 
-A pricenode operator's main responsibilities are to ensure their node(s) are available and up-to-date. Releases are currently source-only, with the assumption that most operators will favor Git-based "push to deploy" workflows. To stay up to date with releases, operators can [subscribe to this repository's releases.atom feed](https://github.com/haveno-dex/pricenode/releases.atom) and/or get notifications in the `#pricenode` Slack channel.
+A pricenode operator's main responsibilities are to ensure their node(s) are available and up-to-date. Releases are currently source-only, with the assumption that most operators will favor Git-based "push to deploy" workflows. To stay up to date with releases, operators can [subscribe to this repository's releases.atom feed](https://github.com/haveno-dex/pricenode/releases.atom).
 
 Operating a production pricenode is a valuable service to the Haveno network.
 
@@ -32,7 +32,7 @@ This repo has a dependency on git submodule [haveno](https://github.com/haveno-d
 
 ```
 # 1) Use the --recursive option in the clone command:
-$ git clone --recursive  https://github.com/haveno-dex/haveno-pricenode.git
+$ git clone --recursive https://github.com/haveno-dex/haveno-pricenode.git
 
 # 2) Do a normal clone, and pull down the haveno repo dependency with two git submodule commands:
 $ git clone https://github.com/haveno-dex/haveno-pricenode.git
