@@ -76,8 +76,8 @@ echo "[*] Building Haveno from source"
 sudo -H -i -u "${HAVENO_USER}" sh -c "cd ${HAVENO_HOME}/${HAVENO_REPO_NAME} && ./gradlew build  -x test < /dev/null"
 
 echo "[*] Installing haveno-pricenode systemd service"
-sudo -H -i -u "${ROOT_USER}" install -c -o "${ROOT_USER}" -g "${ROOT_GROUP}" -m 644 "${HAVENO_HOME}/../${HAVENO_REPO_NAME}/scripts/haveno-pricenode.service" "${SYSTEMD_SERVICE_HOME}"
-sudo -H -i -u "${ROOT_USER}" install -c -o "${ROOT_USER}" -g "${ROOT_GROUP}" -m 644 "${HAVENO_HOME}/../${HAVENO_REPO_NAME}/scripts/haveno-pricenode.env" "${SYSTEMD_ENV_HOME}"
+sudo -H -i -u "${ROOT_USER}" install -c -o "${ROOT_USER}" -g "${ROOT_GROUP}" -m 644 "${HAVENO_HOME}/${HAVENO_REPO_NAME}/scripts/haveno-pricenode.service" "${SYSTEMD_SERVICE_HOME}"
+sudo -H -i -u "${ROOT_USER}" install -c -o "${ROOT_USER}" -g "${ROOT_GROUP}" -m 644 "${HAVENO_HOME}/${HAVENO_REPO_NAME}/scripts/haveno-pricenode.env" "${SYSTEMD_ENV_HOME}"
 
 echo "[*] Reloading systemd daemon configuration"
 sudo -H -i -u "${ROOT_USER}" systemctl daemon-reload
