@@ -64,7 +64,7 @@ At the end of the installer script, it should print your Tor onion hostname.
 To manually test the endpoint, run the following:
 
 ``` bash
-curl http://localhost:8080/getAllMarketPrices
+curl http://localhost:8078/getAllMarketPrices
 ```
 
 ### Monitoring
